@@ -3,7 +3,7 @@ services:
     name: documind-rag
     env: python
     buildCommand: "./build.sh"
-    startCommand: "gunicorn -w 1 -k uvicorn.workers.UvicornWorker backend.main:app"
+    startCommand: "gunicorn -w 1 -k uvicorn.workers.UvicornWorker --timeout 120 backend.main:app"
     envVars:
       - key: GROQ_API_KEY
         sync: false

@@ -1,5 +1,12 @@
 import os
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
+
 import shutil
+import gc
 from typing import List, Dict, Any, Optional
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -31,10 +38,11 @@ class DocuQueryEngine:
         """Initialize FastEmbed Embeddings (ONNX runtime, <100MB RAM) and Groq LLM."""
         print(f"Initializing Embeddings: {EMBEDDING_MODEL}")
         self.embeddings = FastEmbedEmbeddings(
-            model_name=EMBEDDING_MODEL
+            model_name=EMBEDDING_MODEL,
+            batch_size=32,
+            threads=1
         )
 
-        
         if GROQ_API_KEY:
             self.llm = ChatGroq(
                 groq_api_key=GROQ_API_KEY,
@@ -75,6 +83,12 @@ class DocuQueryEngine:
         if total_pages == 0:
             raise ValueError("The uploaded PDF is empty or contains no extractable text.")
 
+        # Cap max pages for 512MB RAM free tier performance
+        MAX_PAGES = 50
+        if total_pages > MAX_PAGES:
+            print(f"Document has {total_pages} pages; processing first {MAX_PAGES} pages for server performance.")
+            raw_documents = raw_documents[:MAX_PAGES]
+
         # Text Splitting
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=CHUNK_SIZE,
@@ -100,10 +114,13 @@ class DocuQueryEngine:
             print(f"Chroma DB embedding/indexing error: {e}")
             raise ValueError(f"Failed to index document in vector store: {str(e)}")
 
+        gc.collect()
+
         self.current_document_info = {
             "filename": filename,
             "file_path": file_path,
             "total_pages": total_pages,
+            "processed_pages": min(total_pages, MAX_PAGES),
             "total_chunks": len(chunks),
             "chunk_size": CHUNK_SIZE,
             "chunk_overlap": CHUNK_OVERLAP,
