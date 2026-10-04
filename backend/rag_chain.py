@@ -197,8 +197,9 @@ class DocuQueryEngine:
 
         chain = rag_prompt | self.llm | StrOutputParser()
 
-        fallback_models = ["llama-3.1-8b-instant", "mixtral-8x7b-32768", "gemma2-9b-it"]
+        fallback_models = ["qwen/qwen3.8-27b", "openai/gpt-oss-20b"]
         response_answer = None
+        last_error = None
 
         try:
             response_answer = chain.invoke({
@@ -206,6 +207,7 @@ class DocuQueryEngine:
                 "question": question
             })
         except Exception as primary_err:
+            last_error = primary_err
             print(f"Primary LLM invocation failed ({getattr(self.llm, 'model_name', DEFAULT_LLM_MODEL)}): {primary_err}. Attempting fallback models...")
             for fallback_m in fallback_models:
                 try:
@@ -222,10 +224,12 @@ class DocuQueryEngine:
                     print(f"Successfully generated response using fallback model: {fallback_m}")
                     break
                 except Exception as fb_err:
+                    last_error = fb_err
                     print(f"Fallback model {fallback_m} failed: {fb_err}")
 
         if not response_answer:
-            raise ValueError("All configured LLM models failed to process the request. Please check your Groq API key and model availability.")
+            err_msg = str(last_error) if last_error else "Unknown LLM error"
+            raise ValueError(f"Groq LLM processing failed: {err_msg}. Please check your GROQ_API_KEY environment variable on Render.")
 
         return {
             "question": question,
