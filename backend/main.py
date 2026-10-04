@@ -37,7 +37,7 @@ class QueryRequest(BaseModel):
     top_k: Optional[int] = 4
 
 @app.post("/api/upload")
-async def upload_pdf(file: UploadFile = File(...)):
+def upload_pdf(file: UploadFile = File(...)):
     if not file.filename.lower().endswith(".pdf"):
         return JSONResponse(
             status_code=400,
@@ -77,7 +77,7 @@ async def upload_pdf(file: UploadFile = File(...)):
         )
 
 @app.post("/api/query")
-async def query_document(request: QueryRequest):
+def query_document(request: QueryRequest):
     if not request.question.strip():
         return JSONResponse(
             status_code=400,
@@ -105,7 +105,7 @@ async def query_document(request: QueryRequest):
         )
 
 @app.get("/api/status")
-async def get_status():
+def get_status():
     try:
         return JSONResponse(
             status_code=200,
@@ -121,7 +121,7 @@ async def get_status():
         )
 
 @app.post("/api/reset")
-async def reset_session():
+def reset_session():
     try:
         rag_engine.reset_vector_store()
         return JSONResponse(
