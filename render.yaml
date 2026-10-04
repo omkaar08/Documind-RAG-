@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: documind-rag
+    env: python
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn -w 1 -k uvicorn.workers.UvicornWorker backend.main:app"
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: PYTHON_VERSION
+        value: 3.10.12
