@@ -3,7 +3,7 @@ import shutil
 from typing import List, Dict, Any, Optional
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.embeddings import FastEmbedEmbeddings
 from langchain_chroma import Chroma
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
@@ -28,13 +28,12 @@ class DocuQueryEngine:
         self._init_components()
 
     def _init_components(self):
-        """Initialize HuggingFace Embeddings and Groq LLM."""
+        """Initialize FastEmbed Embeddings (ONNX runtime, <100MB RAM) and Groq LLM."""
         print(f"Initializing Embeddings: {EMBEDDING_MODEL}")
-        self.embeddings = HuggingFaceEmbeddings(
-            model_name=EMBEDDING_MODEL,
-            model_kwargs={'device': 'cpu'},
-            encode_kwargs={'normalize_embeddings': True}
+        self.embeddings = FastEmbedEmbeddings(
+            model_name=EMBEDDING_MODEL
         )
+
         
         if GROQ_API_KEY:
             self.llm = ChatGroq(

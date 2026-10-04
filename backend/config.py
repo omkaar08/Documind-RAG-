@@ -20,6 +20,7 @@ CHROMA_DB_DIR.mkdir(parents=True, exist_ok=True)
 
 # Default LLM and Embeddings configurations
 DEFAULT_LLM_MODEL = os.getenv("LLM_MODEL", "openai/gpt-oss-120b")
-EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
 CHUNK_SIZE = 1000
+
 CHUNK_OVERLAP = 200
