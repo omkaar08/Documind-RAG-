@@ -21,6 +21,5 @@ CHROMA_DB_DIR.mkdir(parents=True, exist_ok=True)
 # Default LLM and Embeddings configurations
 DEFAULT_LLM_MODEL = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
 EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
-CHUNK_SIZE = 1000
-
-CHUNK_OVERLAP = 200
+CHUNK_SIZE = 1500
+CHUNK_OVERLAP = 150

@@ -100,6 +100,12 @@ class DocuQueryEngine:
         if not chunks:
             raise ValueError("Could not extract text chunks from the PDF.")
 
+        # Cap max chunks to 40 for sub-second vector store indexing on Render free tier
+        MAX_CHUNKS = 40
+        if len(chunks) > MAX_CHUNKS:
+            print(f"Truncating {len(chunks)} chunks to top {MAX_CHUNKS} chunks for fast processing.")
+            chunks = chunks[:MAX_CHUNKS]
+
         # Clear previous Chroma collection safely
         self.reset_vector_store()
 
