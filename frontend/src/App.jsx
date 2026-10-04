@@ -14,9 +14,16 @@ export default function App() {
   // Check initial document status from backend
   useEffect(() => {
     fetch('/api/status')
-      .then((res) => res.json())
+      .then(async (res) => {
+        if (!res.ok) return null;
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          return res.json().catch(() => null);
+        }
+        return null;
+      })
       .then((resData) => {
-        if (resData.success && resData.data?.has_document) {
+        if (resData && resData.success && resData.data?.has_document) {
           setDocInfo(resData.data.document_info);
         }
       })

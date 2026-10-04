@@ -58,10 +58,21 @@ export default function ChatInterface({ docInfo, onOpenSources }) {
         body: JSON.stringify({ question: text, top_k: 4 }),
       });
 
-      const resData = await response.json();
+      let resData = {};
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        try {
+          resData = await response.json();
+        } catch (jsonErr) {
+          resData = {};
+        }
+      } else {
+        const textResp = await response.text().catch(() => '');
+        resData = { detail: textResp || `Server error (${response.status}): ${response.statusText || 'Unexpected response'}` };
+      }
 
       if (!response.ok) {
-        throw new Error(resData.detail || "Failed to query document.");
+        throw new Error(resData.detail || resData.message || "Failed to query document.");
       }
 
       const answerData = resData.data;

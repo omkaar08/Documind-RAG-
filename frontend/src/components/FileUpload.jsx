@@ -68,10 +68,21 @@ export default function FileUpload({ docInfo, onUploadSuccess, isProcessing, set
       clearTimeout(timer2);
       clearTimeout(timer3);
 
-      const resData = await response.json();
+      let resData = {};
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        try {
+          resData = await response.json();
+        } catch (jsonErr) {
+          resData = {};
+        }
+      } else {
+        const textResp = await response.text().catch(() => '');
+        resData = { detail: textResp || `Server error (${response.status}): ${response.statusText || 'Unexpected server response'}` };
+      }
 
       if (!response.ok) {
-        throw new Error(resData.detail || "Failed to process PDF.");
+        throw new Error(resData.detail || resData.message || `Failed to process PDF (${response.status}).`);
       }
 
       setIsProcessing(false);

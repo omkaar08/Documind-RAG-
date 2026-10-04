@@ -1,12 +1,12 @@
 import os
 import shutil
 from pathlib import Path
+from typing import Optional
+from pydantic import BaseModel
 from fastapi import FastAPI, UploadFile, File, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-from pydantic import BaseModel
-from typing import Optional
+from fastapi.responses import FileResponse, JSONResponse
 
 from backend.config import UPLOADS_DIR, BASE_DIR
 from backend.rag_chain import rag_engine
@@ -32,10 +32,10 @@ class QueryRequest(BaseModel):
 
 @app.post("/api/upload")
 async def upload_pdf(file: UploadFile = File(...)):
-    if not file.filename.endswith(".pdf"):
-        raise HTTPException(
+    if not file.filename.lower().endswith(".pdf"):
+        return JSONResponse(
             status_code=400,
-            detail="Invalid file format. Please upload a PDF file."
+            content={"success": False, "detail": "Invalid file format. Please upload a PDF file."}
         )
     
     file_path = UPLOADS_DIR / file.filename
@@ -48,51 +48,88 @@ async def upload_pdf(file: UploadFile = File(...)):
         # Process document through RAG engine
         doc_info = rag_engine.process_pdf(str(file_path), file.filename)
 
-        return {
-            "success": True,
-            "message": f"Successfully processed '{file.filename}'",
-            "data": doc_info
-        }
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "message": f"Successfully processed '{file.filename}'",
+                "data": doc_info
+            }
+        )
     except Exception as e:
+        import traceback
         print(f"Error processing PDF: {e}")
+        traceback.print_exc()
         if os.path.exists(file_path):
-            os.remove(file_path)
-        raise HTTPException(status_code=500, detail=str(e))
+            try:
+                os.remove(file_path)
+            except Exception:
+                pass
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "detail": str(e) or "Failed to process PDF document."}
+        )
 
 @app.post("/api/query")
 async def query_document(request: QueryRequest):
     if not request.question.strip():
-        raise HTTPException(status_code=400, detail="Question cannot be empty.")
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "detail": "Question cannot be empty."}
+        )
     
     try:
         result = rag_engine.query_rag(question=request.question, top_k=request.top_k)
-        return {
-            "success": True,
-            "data": result
-        }
+        return JSONResponse(
+            status_code=200,
+            content={"success": True, "data": result}
+        )
     except ValueError as ve:
-        raise HTTPException(status_code=400, detail=str(ve))
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "detail": str(ve)}
+        )
     except Exception as e:
+        import traceback
         print(f"Error querying document: {e}")
-        raise HTTPException(status_code=500, detail=f"Internal RAG Error: {str(e)}")
+        traceback.print_exc()
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "detail": f"Internal RAG Error: {str(e)}"}
+        )
 
 @app.get("/api/status")
 async def get_status():
-    return {
-        "success": True,
-        "data": rag_engine.get_status()
-    }
+    try:
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "data": rag_engine.get_status()
+            }
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "detail": str(e)}
+        )
 
 @app.post("/api/reset")
 async def reset_session():
     try:
         rag_engine.reset_vector_store()
-        return {
-            "success": True,
-            "message": "Vector store and session successfully reset."
-        }
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "message": "Vector store and session successfully reset."
+            }
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "detail": str(e)}
+        )
 
 # Serve frontend build if dist folder exists (Production unified deployment)
 dist_dir = BASE_DIR / "frontend" / "dist"

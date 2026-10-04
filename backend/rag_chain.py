@@ -61,15 +61,19 @@ class DocuQueryEngine:
         """
         1. Extract text page by page with PyPDFLoader.
         2. Chunk text with RecursiveCharacterTextSplitter.
-        3. Index into ChromaDB with HuggingFace Embeddings.
+        3. Index into ChromaDB with FastEmbed Embeddings.
         """
         # Load PDF
-        loader = PyPDFLoader(file_path)
-        raw_documents = loader.load()
+        try:
+            loader = PyPDFLoader(file_path)
+            raw_documents = loader.load()
+        except Exception as e:
+            print(f"PyPDFLoader error: {e}")
+            raise ValueError(f"Failed to read PDF file: {str(e)}")
         
         total_pages = len(raw_documents)
         if total_pages == 0:
-            raise ValueError("The uploaded PDF is empty or could not be read.")
+            raise ValueError("The uploaded PDF is empty or contains no extractable text.")
 
         # Text Splitting
         text_splitter = RecursiveCharacterTextSplitter(
@@ -79,15 +83,22 @@ class DocuQueryEngine:
         )
         chunks = text_splitter.split_documents(raw_documents)
 
-        # Clear previous Chroma DB for single-doc active session clarity
+        if not chunks:
+            raise ValueError("Could not extract text chunks from the PDF.")
+
+        # Clear previous Chroma collection safely
         self.reset_vector_store()
 
         # Create Chroma Vector Store
-        self.vector_store = Chroma.from_documents(
-            documents=chunks,
-            embedding=self.embeddings,
-            persist_directory=str(CHROMA_DB_DIR)
-        )
+        try:
+            self.vector_store = Chroma.from_documents(
+                documents=chunks,
+                embedding=self.embeddings,
+                persist_directory=str(CHROMA_DB_DIR)
+            )
+        except Exception as e:
+            print(f"Chroma DB embedding/indexing error: {e}")
+            raise ValueError(f"Failed to index document in vector store: {str(e)}")
 
         self.current_document_info = {
             "filename": filename,
@@ -163,7 +174,7 @@ class DocuQueryEngine:
 
         chain = rag_prompt | self.llm | StrOutputParser()
 
-        fallback_models = ["openai/gpt-oss-120b", "qwen/qwen3.8-27b", "openai/gpt-oss-20b"]
+        fallback_models = ["llama-3.1-8b-instant", "mixtral-8x7b-32768", "gemma2-9b-it"]
         response_answer = None
 
         try:
@@ -201,17 +212,13 @@ class DocuQueryEngine:
         }
 
     def reset_vector_store(self):
-        """Reset Chroma vector store and current document metadata."""
-        if self.vector_store:
+        """Reset Chroma vector store and current document metadata without file locks."""
+        if self.vector_store is not None:
             try:
                 self.vector_store.delete_collection()
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"Notice during vector collection reset: {e}")
             self.vector_store = None
-        
-        if os.path.exists(CHROMA_DB_DIR):
-            shutil.rmtree(CHROMA_DB_DIR, ignore_errors=True)
-            os.makedirs(CHROMA_DB_DIR, exist_ok=True)
             
         self.current_document_info = None
 
